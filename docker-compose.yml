@@ -1,0 +1,83 @@
+version: "3.9"
+services:
+  test:
+    user: "${UID:-1000}:${GID:-1000}"
+    container_name: test
+    image: zf1-${PHP_ALPINE_IMAGE:-php:8.2-alpine}
+    build:
+      context: .docker
+      args:
+        PHP_ALPINE_IMAGE: "${PHP_ALPINE_IMAGE:-php:8.2-alpine}"
+    volumes:
+      - ./library:/app/library
+      - ./tests:/app/tests
+      - ./bin:/app/bin
+      - ./vendor:/app/vendor
+    working_dir: /app
+    command: ./bin/phpunit -c ./tests/phpunit.xml
+    environment:
+      CI: 1
+      TESTS_ZEND_DB_ADAPTER_PDO_MYSQL_ENABLED: 1
+      TESTS_ZEND_DB_ADAPTER_MYSQL_USERNAME: zftest
+      TESTS_ZEND_DB_ADAPTER_MYSQL_PASSWORD: zftest
+      TESTS_ZEND_DB_ADAPTER_MYSQL_DATABASE: test
+      TESTS_ZEND_DB_ADAPTER_MYSQL_HOSTNAME: mysql
+
+      TESTS_ZEND_DB_ADAPTER_PDO_PGSQL_ENABLED: 1
+      TESTS_ZEND_DB_ADAPTER_PDO_PGSQL_USERNAME: zftest
+      TESTS_ZEND_DB_ADAPTER_PDO_PGSQL_PASSWORD: zftest
+      TESTS_ZEND_DB_ADAPTER_PDO_PGSQL_DATABASE: test
+      TESTS_ZEND_DB_ADAPTER_PDO_PGSQL_HOSTNAME: postgres
+
+      TESTS_ZEND_CACHE_SQLITE_ENABLED: 1
+      TESTS_ZEND_DB_ADAPTER_PDO_SQLITE_ENABLED: 1
+
+      TESTS_ZEND_CACHE_MEMCACHED_ENABLED: 1
+      TESTS_ZEND_CACHE_MEMCACHED_HOST: memcached
+      TESTS_ZEND_CACHE_MEMCACHED_PORT: 11211
+
+      TESTS_ZEND_CACHE_LIBMEMCACHED_ENABLED: 1
+      TESTS_ZEND_CACHE_LIBMEMCACHED_HOST: memcached
+      TESTS_ZEND_CACHE_LIBMEMCACHED_PORT: 11211
+    depends_on:
+      memcached:
+        condition: service_started
+      mysql:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+  memcached:
+    container_name: memcached
+    image: memcached:1.6.17-alpine
+  
+  mysql:
+    image: bitnami/mysql:8.0.31
+    container_name: mysql
+    healthcheck:
+      test: mysqladmin ping
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    environment:
+      MYSQL_ROOT_USER: ${TESTS_ZEND_DB_ADAPTER_MYSQL_USERNAME:-zftest}
+      MYSQL_ROOT_PASSWORD: ${TESTS_ZEND_DB_ADAPTER_MYSQL_PASSWORD:-zftest}
+      MYSQL_DATABASE: ${TESTS_ZEND_DB_ADAPTER_MYSQL_DATABASE:-test}
+      MYSQL_AUTHENTICATION_PLUGIN: mysql_native_password
+      MYSQL_CHARACTER_SET: utf8mb4
+      MYSQL_COLLATE: utf8mb4_0900_ai_ci
+
+  postgres:
+    image: postgres:15.1-alpine
+    container_name: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+    environment:
+      POSTGRES_USER: ${TESTS_ZEND_DB_ADAPTER_PDO_PGSQL_USERNAME:-zftest}
+      POSTGRES_PASSWORD: ${TESTS_ZEND_DB_ADAPTER_PDO_PGSQL_PASSWORD-zftest}
+      POSTGRES_DB: ${TESTS_ZEND_DB_ADAPTER_PDO_PGSQL_DATABASE-test}

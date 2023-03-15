@@ -84,7 +84,7 @@ it-test-on-php81: prepaire-test-env ## Run intergration test on php 8.1
 
 it-test-on-php80: prepaire-test-env ## Run intergration test on php 8.0
 	PHP_ALPINE_IMAGE=php:8.0-alpine \
-	docker-compose up --build --abort-on-container-exit --remove-orphansx
+	docker-compose up --build --abort-on-container-exit --remove-orphans
 
 it-test-on-php74: prepaire-test-env ## Run intergration test on php 7.4
 	PHP_ALPINE_IMAGE=php:7.4-alpine \

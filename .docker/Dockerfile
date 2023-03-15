@@ -13,4 +13,6 @@ apk add --no-cache libmemcached-dev && pecl install memcached && docker-php-ext-
 \
 apk add --no-cache libmemcached-dev zlib-dev && pecl install memcache && docker-php-ext-enable memcache;\
 \
+pecl install lzf && docker-php-ext-enable lzf;\
+\
 echo 'memory_limit = -1' >> /usr/local/etc/php/conf.d/docker-php-ram-limit.ini;

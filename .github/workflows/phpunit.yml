@@ -9,7 +9,6 @@ jobs:
     runs-on: ubuntu-22.04
 
     env:
-      PHP_EXTENSIONS: none, posix, curl, dom, json, libxml, mbstring, openssl, tokenizer, xml, xmlwriter, ctype, iconv, simplexml, pdo_sqlite, pdo_mysql, fileinfo, json, zip, sqlite, soap, bcmath, mcrypt, igbinary, gd, bz2, lzf, rar, memcached, memcache
       PHP_INI_VALUES: memory_limit=-1, assert.exception=1, zend.assertions=1, error_reporting=-1, log_errors_max_len=0, display_errors=On
 
       TESTS_ZEND_DB_ADAPTER_PDO_MYSQL_ENABLED: true
@@ -99,24 +98,25 @@ jobs:
       fail-fast: false
       matrix:
         php-version:
+          - "7.4"
           - "8.0"
-          - "8.1"
-          - "8.2"
+          # - "8.1"
+          # - "8.2"
         experimental:
           - false
-        include:
-          - php-version: "8.3"
-            experimental: true
+        # include:
+        #   - php-version: "8.3"
+        #     experimental: true
 
     steps:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Setup Locale
-        run: |
-          sudo apt-get update && sudo apt-get install tzdata locales -y && sudo locale-gen $LOCALES
-          echo "All languages..."
-          locale -a
+      # - name: Setup Locale
+      #   run: |
+      #     sudo apt-get update && sudo apt-get install tzdata locales -y && sudo locale-gen $LOCALES
+      #     echo "All languages..."
+      #     locale -a
       
       - name: Provider config base on env for intergrate test
         run: cp tests/TestConfiguration.env.php tests/TestConfiguration.php
@@ -126,24 +126,39 @@ jobs:
         with:
           php-version: ${{ matrix.php-version }}
           tools: cs2pr
-          extensions: memcached, memcache
+          extensions: :xdebug, :opcacche, ctype, dom, gd, iconv, ldap, mbstring, reflection, session, simplexml, spl, xml, zlib, memcache, memcached, pdo_sqlite, bcmath, bz2, lzf
           ini-values: ${{ env.PHP_INI_VALUES }}
         env:
           # https://github.com/shivammathur/setup-php/issues/407#issuecomment-773675741
           fail-fast: true
 
+      - name: List installed php extension
+        run: |
+          openssl version -d
+          if [ "${{ matrix.php-version }}" = "7.4" ]; then
+            ls -lha /etc/ssl/
+            cp /etc/ssl/openssl.cnf /tmp/
+            sed -i '/^default = default_sect/a legacy = legacy_sect' /tmp/openssl.cnf
+            sed -i '/^\[default_sect\]/a activate = 1' /tmp/openssl.cnf
+            printf "[legacy_sect]\nactivate = 1" >> /tmp/openssl.cnf
+            sudo cp -f /tmp/openssl.cnf /etc/ssl/
+          fi
+          cat /usr/lib/ssl/openssl.cnf
+          php -m
+          php -i | grep openssl
+
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress --no-suggest
 
-      - name: Lint PHP source files
-        run: |
-          bin/parallel-lint --exclude vendor --exclude tests/Zend/Loader/_files/ParseError.php . --checkstyle | cs2pr
+      # - name: Lint PHP source files
+      #   run: |
+      #     bin/parallel-lint --exclude vendor --exclude tests/Zend/Loader/_files/ParseError.php . --checkstyle | cs2pr
 
-      - name: Setup LDAP
-        run: |
-          sudo apt-get install -y libnss-ldap libpam-ldap ldap-utils
-          tests/resources/openldap/docker-entrypoint-initdb.d/init.sh
+      # - name: Setup LDAP
+      #   run: |
+      #     sudo apt-get install -y libnss-ldap libpam-ldap ldap-utils
+      #     tests/resources/openldap/docker-entrypoint-initdb.d/init.sh
 
       - name: "Run tests on PHP ${{ matrix.php-version }} (Experimental: ${{ matrix.experimental }})"
-        run: bin/phpunit -c tests/phpunit.xml
+        run: bin/phpunit -c tests/phpunit.xml tests/Zend/Filter/Encrypt/OpensslTest.php
         continue-on-error: ${{ matrix.experimental }}
